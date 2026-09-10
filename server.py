@@ -5,6 +5,7 @@ https://charlesleifer.com/blog/building-a-simple-redis-server-with-python/
 This version is updated to run on Python 3 (the original post was written
 for Python 2, so string/bytes handling has been fixed throughout).
 """
+import os
 from io import BytesIO
 from collections import namedtuple
 
@@ -12,14 +13,14 @@ from gevent import socket
 from gevent.pool import Pool
 from gevent.server import StreamServer
 
-from protocol import ProtocolHandler, CommandError
+from protocol import ProtocolHandler, CommandError, Error, Disconnect
 
 
 Error = namedtuple('Error', ('message',))
 
 
 class Server(object):
-    def __init__(self, host='127.0.0.1', port=31337, max_clients=64):
+    def __init__(self, host='127.0.0.1', port=31337, max_clients=64,log_path='database.aof'):
         self._pool = Pool(max_clients)
         self._server = StreamServer(
             (host, port),
@@ -28,6 +29,10 @@ class Server(object):
         self._protocol = ProtocolHandler()
         self._kv = {}
         self._commands = self.get_commands()
+        self._log_path = log_path
+        self._log_file = None
+        self._replay_log()
+        self._connect_log()
 
     def get_commands(self):
         return {
@@ -38,6 +43,25 @@ class Server(object):
             'MGET': self.mget,
             'MSET': self.mset,
         }
+
+    def _connect_log(self):
+        self._log_file = open(self._log_path, 'a+b')
+
+    def _replay_log(self):
+        if not os.path.exists(self._log_path):
+            return
+        with open(self._log_path, 'rb') as f:
+            while True:
+                try:
+                    data = self._protocol.handle_request(f)
+                except Disconnect:
+                    break
+                self.get_response(data)
+
+    def _log_command(self, command, *args):
+        if self._log_file is None:
+            return
+        self._protocol.write_response(self._log_file, [command, *args])
 
     def connection_handler(self, conn, address):
         socket_file = conn.makefile('rwb')
@@ -78,17 +102,20 @@ class Server(object):
 
     def set(self, key, value):
         self._kv[key] = value
+        self._log_command('SET',key,value)
         return 1
 
     def delete(self, key):
         if key in self._kv:
             del self._kv[key]
+            self._log_command('DELETE',key)
             return 1
         return 0
 
     def flush(self):
         kvlen = len(self._kv)
         self._kv.clear()
+        self._log_command('FLUSH')
         return kvlen
 
     def mget(self, *keys):
@@ -98,6 +125,7 @@ class Server(object):
         data = list(zip(items[::2], items[1::2]))
         for key, value in data:
             self._kv[key] = value
+        self._log_command('MSET', *items)
         return len(data)
 
     def run(self):
