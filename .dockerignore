@@ -1,0 +1,10 @@
+# .dockerignore
+__pycache__/
+*.pyc
+tests/
+.git/
+.gitignore
+README.md
+*.aof
+venv/
+.venv/
