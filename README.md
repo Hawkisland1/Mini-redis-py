@@ -1,5 +1,7 @@
 # mini-redis-py
 
+[![Build Status](https://dev.azure.com/mini-redis-py/mini-redis-py/_apis/build/status%2FHawkisland1.Mini-redis-py?branchName=main)](https://dev.azure.com/mini-redis-py/mini-redis-py/_build/latest?definitionId=1&branchName=main)
+
 A Redis-like in-memory key-value server implemented from scratch in Python, using [gevent](http://www.gevent.org/) for concurrency. It implements a subset of the RESP-style wire protocol, a handful of core commands, and append-only file persistence with log replay on startup.
 
 Originally based on [this tutorial](https://charlesleifer.com/blog/building-a-simple-redis-server-with-python/), then rewritten for Python 3, split into modules, covered with tests, and extended with persistence.
@@ -11,6 +13,8 @@ Originally based on [this tutorial](https://charlesleifer.com/blog/building-a-si
 - Concurrent client handling via gevent's greenlets and a connection pool
 - Append-only file (AOF) persistence — every write is logged, and the log is replayed on startup to rebuild state
 - Test suite covering protocol encode/decode round-trips, command logic, and persistence across restarts
+- Containerized with Docker
+- CI via Azure Pipelines — tests run automatically on every push to `main`
 
 ## Project structure
 
@@ -86,6 +90,7 @@ Every mutating command (`SET`, `DELETE`, `MSET`, `FLUSH`) is appended to an appe
 - **Log compaction**: the append-only log grows forever and is replayed in full on every startup. A production version would need periodic compaction — rewriting the log to just the current state — the same way Redis's own AOF rewrite works.
 - **Durability guarantees**: writes are appended to the log but not explicitly `fsync`'d, so a crash immediately after a write could lose that entry. A stricter durability mode would trade write latency for calling `fsync` after each append.
 - **Single point of failure**: there's no replication — one server, one copy of the data. A distributed version would need to handle replica sync and failover.
+- **Mixed key types after replay**: commands issued directly in Python use `str` keys/values, but anything read back from the append-only log (or received over the network) comes through the wire protocol as `bytes`. This means the same logical key can exist as `'k1'` or `b'k1'` depending on how it entered the system — a real inconsistency I found while testing persistence. A production version would normalize all keys to `bytes` (or `str`, decoded consistently) at the point of ingestion, rather than leaving the type ambiguous.
 
 ## Extending this project
 
