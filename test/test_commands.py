@@ -3,9 +3,11 @@ import pytest
 from server import Server
 
 @pytest.fixture
-def server():
-    """Fresh Server instance for each test, so tests don't leak state into each other."""
-    return Server()
+def server(tmp_path):
+    """Fresh Server instance for each test, with its own isolated log file
+    so tests don't leak state into each other."""
+    log_path = str(tmp_path / "test.aof")
+    return Server(log_path=log_path)
 
 def test_set_and_get(server):
     assert server.set('k1', 'v1') == 1

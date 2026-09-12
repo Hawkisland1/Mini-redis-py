@@ -8,4 +8,4 @@ def test_persistence_across_restarts(tmp_path):
     server1._log_file.close()
 
     server2 = Server(log_path=log_path)
-    assert server2.get('k1') == 'v1'
+    assert server2.get('k1') == b'v1'
