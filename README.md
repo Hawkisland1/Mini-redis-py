@@ -94,4 +94,4 @@ Every mutating command (`SET`, `DELETE`, `MSET`, `FLUSH`) is appended to an appe
 
 ## Extending this project
 
-Possible next steps: additional commands (`EXPIRE`, `LPUSH`/`LPOP`), a pub/sub mechanism, Dockerizing the server, and CI/CD via Azure Pipelines with a deployment to Azure Container Instances.
+Possible next steps: additional commands (`EXPIRE`, `LPUSH`/`LPOP`), a pub/sub mechanism, a pub/sub mechanism, and deploying the container to Azure (Container Instances or App Service) for a live, reachable instance.
